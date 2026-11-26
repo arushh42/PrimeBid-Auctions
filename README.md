@@ -53,8 +53,10 @@ Generate a secret with
 ### 4. Create your admin account
 Public sign-up only creates Bidders and Auctioneers. Create the Super Admin from the terminal:
 ```bash
-npm run create-admin -- --name "Site Admin" --email admin@example.com --password 'a-strong-password'
+npm run create-admin
 ```
+It asks for the database (press Enter for the one in `config.env`, or paste your Atlas
+string for the live site), then the admin's name, email and password.
 
 ### 5. (Only if reusing a database from the old version)
 ```bash
@@ -98,8 +100,8 @@ The API serves the built React app, so everything is on one domain and login coo
    (`npm run build`) and start (`npm start`) commands, and the health check.
 4. Fill in the prompted secrets: `MONGO_URI`, the three `CLOUDINARY_*` values, and SMTP
    if you want email. `JWT_SECRET_KEY` is generated for you.
-5. After the first deploy, create the admin from Render's **Shell** tab:
-   `npm run create-admin -- --email you@example.com --password '...'`
+5. After the first deploy, run `npm run create-admin` on your own computer and paste
+   your Atlas connection string when asked (the free plan has no Shell tab).
 
 On another host (Railway, Fly.io, a VPS): set the same environment variables plus
 `NODE_ENV=production`, and use `npm run build` and then `npm start`.
