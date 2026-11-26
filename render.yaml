@@ -4,7 +4,9 @@ services:
   - type: web
     name: primebid
     runtime: node
-    plan: starter # the free plan sleeps when idle, which pauses the auction-ending job
+    # Free plan sleeps after ~15 min idle (auctions are finalized when it wakes).
+    # Switch to "starter" for always-on hosting once you have real users.
+    plan: free
     buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/v1/health
