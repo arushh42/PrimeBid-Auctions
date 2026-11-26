@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { api, getErrorMessage } from "@/lib/api";
 
 const commissionSlice = createSlice({
   name: "commission",
@@ -8,34 +8,26 @@ const commissionSlice = createSlice({
     loading: false,
   },
   reducers: {
-    postCommissionProofRequest(state, action) {
+    request(state) {
       state.loading = true;
     },
-    postCommissionProofSuccess(state, action) {
-      state.loading = false;
-    },
-    postCommissionProofFailed(state, action) {
+    done(state) {
       state.loading = false;
     },
   },
 });
 
 export const postCommissionProof = (data) => async (dispatch) => {
-  dispatch(commissionSlice.actions.postCommissionProofRequest());
+  dispatch(commissionSlice.actions.request());
   try {
-    const response = await axios.post(
-      "http://localhost:5000/api/v1/commission/proof",
-      data,
-      {
-        withCredentials: true,
-        headers: { "Content-Type": "multipart/form-data" },
-      }
-    );
-    dispatch(commissionSlice.actions.postCommissionProofSuccess());
+    const response = await api.post("/commission/proof", data);
     toast.success(response.data.message);
+    return true;
   } catch (error) {
-    dispatch(commissionSlice.actions.postCommissionProofFailed());
-    toast.error(error.response.data.message);
+    toast.error(getErrorMessage(error, "Could not submit payment proof."));
+    return false;
+  } finally {
+    dispatch(commissionSlice.actions.done());
   }
 };
 

@@ -1,4 +1,4 @@
-import React from "react";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -63,8 +63,9 @@ const BiddersAuctioneersGraph = () => {
     scales: {
       y: {
         beginAtZero: true,
-        max: 50,
+        suggestedMax: 5,
         ticks: {
+          precision: 0,
           callback: function (value) {
             return value.toLocaleString();
           },

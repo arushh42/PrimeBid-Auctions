@@ -1,3 +1,4 @@
+import express from "express";
 import {
   addNewAuctionItem,
   getAllItems,
@@ -7,7 +8,6 @@ import {
   republishItem,
 } from "../controllers/auctionItemController.js";
 import { isAuthenticated, isAuthorized } from "../middlewares/auth.js";
-import express from "express";
 import { trackCommissionStatus } from "../middlewares/trackCommissionStatus.js";
 
 const router = express.Router();
@@ -22,7 +22,8 @@ router.post(
 
 router.get("/allitems", getAllItems);
 
-router.get("/auction/:id", isAuthenticated, getAuctionDetails);
+// Public so visitors can browse an auction before signing up.
+router.get("/auction/:id", getAuctionDetails);
 
 router.get(
   "/myitems",
@@ -42,6 +43,7 @@ router.put(
   "/item/republish/:id",
   isAuthenticated,
   isAuthorized("Auctioneer"),
+  trackCommissionStatus,
   republishItem
 );
 

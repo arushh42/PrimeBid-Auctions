@@ -1,206 +1,145 @@
 import { createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { api, getErrorMessage } from "@/lib/api";
 
 const auctionSlice = createSlice({
   name: "auction",
   initialState: {
-    loading: false,
-    itemDetail: {},
+    loading: false, // list fetches
+    detailLoading: false, // single auction fetch
+    detailError: false,
+    submitting: false, // create / republish / delete
     auctionDetail: {},
-    auctionBidders: {},
+    auctionBidders: [],
     myAuctions: [],
     allAuctions: [],
   },
   reducers: {
-    createAuctionRequest(state, action) {
+    fetchRequest(state) {
       state.loading = true;
     },
-    createAuctionSuccess(state, action) {
+    fetchDone(state) {
       state.loading = false;
     },
-    createAuctionFailed(state, action) {
-      state.loading = false;
+    submitRequest(state) {
+      state.submitting = true;
     },
-    getAllAuctionItemRequest(state, action) {
-      state.loading = true;
+    submitDone(state) {
+      state.submitting = false;
     },
-    getAllAuctionItemSuccess(state, action) {
+    setAllAuctions(state, action) {
       state.loading = false;
       state.allAuctions = action.payload;
     },
-    getAllAuctionItemFailed(state, action) {
-      state.loading = false;
+    detailRequest(state) {
+      state.detailLoading = true;
+      state.detailError = false;
     },
-    getAuctionDetailRequest(state, action) {
-      state.loading = true;
+    detailFailed(state) {
+      state.detailLoading = false;
+      state.detailError = true;
     },
-    getAuctionDetailSuccess(state, action) {
-      state.loading = false;
+    setAuctionDetail(state, action) {
+      state.detailLoading = false;
       state.auctionDetail = action.payload.auctionItem;
       state.auctionBidders = action.payload.bidders;
     },
-    getAuctionDetailFailed(state, action) {
-      state.loading = false;
-      state.auctionDetail = state.auctionDetail;
-      state.auctionBidders = state.auctionBidders;
+    clearAuctionDetail(state) {
+      state.auctionDetail = {};
+      state.auctionBidders = [];
     },
-    getMyAuctionsRequest(state, action) {
-      state.loading = true;
-      state.myAuctions = [];
-    },
-    getMyAuctionsSuccess(state, action) {
+    setMyAuctions(state, action) {
       state.loading = false;
       state.myAuctions = action.payload;
-    },
-    getMyAuctionsFailed(state, action) {
-      state.loading = false;
-      state.myAuctions = [];
-    },
-    deleteAuctionItemRequest(state, action) {
-      state.loading = true;
-    },
-    deleteAuctionItemSuccess(state, action) {
-      state.loading = false;
-    },
-    deleteAuctionItemFailed(state, action) {
-      state.loading = false;
-    },
-    republishItemRequest(state, action) {
-      state.loading = true;
-    },
-    republishItemSuccess(state, action) {
-      state.loading = false;
-    },
-    republishItemFailed(state, action) {
-      state.loading = false;
-    },
-
-    resetSlice(state, action) {
-      state.loading = false;
-      state.auctionDetail = state.auctionDetail;
-      state.itemDetail = state.itemDetail;
-      state.myAuctions = state.myAuctions;
-      state.allAuctions = state.allAuctions;
     },
   },
 });
 
+const { actions } = auctionSlice;
+
 export const getAllAuctionItems = () => async (dispatch) => {
-  dispatch(auctionSlice.actions.getAllAuctionItemRequest());
+  dispatch(actions.fetchRequest());
   try {
-    const response = await axios.get(
-      "http://localhost:5000/api/v1/auctionitem/allitems",
-      { withCredentials: true }
-    );
-    dispatch(
-      auctionSlice.actions.getAllAuctionItemSuccess(response.data.items)
-    );
-    dispatch(auctionSlice.actions.resetSlice());
+    const response = await api.get("/auctionitem/allitems");
+    dispatch(actions.setAllAuctions(response.data.items));
   } catch (error) {
-    dispatch(auctionSlice.actions.getAllAuctionItemFailed());
-    console.error(error);
-    dispatch(auctionSlice.actions.resetSlice());
+    dispatch(actions.fetchDone());
+    console.error(getErrorMessage(error));
   }
 };
 
 export const getMyAuctionItems = () => async (dispatch) => {
-  dispatch(auctionSlice.actions.getMyAuctionsRequest());
+  dispatch(actions.fetchRequest());
   try {
-    const response = await axios.get(
-      "http://localhost:5000/api/v1/auctionitem/myitems",
-      { withCredentials: true }
-    );
-    dispatch(auctionSlice.actions.getMyAuctionsSuccess(response.data.items));
-    dispatch(auctionSlice.actions.resetSlice());
+    const response = await api.get("/auctionitem/myitems");
+    dispatch(actions.setMyAuctions(response.data.items));
   } catch (error) {
-    dispatch(auctionSlice.actions.getMyAuctionsFailed());
-    console.error(error);
-    dispatch(auctionSlice.actions.resetSlice());
+    dispatch(actions.setMyAuctions([]));
+    toast.error(getErrorMessage(error, "Could not load your auctions."));
   }
 };
 
-export const getAuctionDetail = (id) => async (dispatch) => {
-  dispatch(auctionSlice.actions.getAuctionDetailRequest());
-  try {
-    const response = await axios.get(
-      `http://localhost:5000/api/v1/auctionitem/auction/${id}`,
-      { withCredentials: true }
-    );
-    dispatch(auctionSlice.actions.getAuctionDetailSuccess(response.data));
-    dispatch(auctionSlice.actions.resetSlice());
-  } catch (error) {
-    dispatch(auctionSlice.actions.getAuctionDetailFailed());
-    console.error(error);
-    dispatch(auctionSlice.actions.resetSlice());
-  }
-};
+/** silent=true refreshes without showing the full-page spinner. */
+export const getAuctionDetail =
+  (id, { silent = false } = {}) =>
+  async (dispatch) => {
+    if (!silent) {
+      dispatch(actions.clearAuctionDetail());
+      dispatch(actions.detailRequest());
+    }
+    try {
+      const response = await api.get(`/auctionitem/auction/${id}`);
+      dispatch(actions.setAuctionDetail(response.data));
+    } catch (error) {
+      if (!silent) dispatch(actions.detailFailed());
+      if (!silent) toast.error(getErrorMessage(error, "Could not load auction."));
+    }
+  };
 
 export const createAuction = (data) => async (dispatch) => {
-  dispatch(auctionSlice.actions.createAuctionRequest());
+  dispatch(actions.submitRequest());
   try {
-    const response = await axios.post(
-      "http://localhost:5000/api/v1/auctionitem/create",
-      data,
-      {
-        withCredentials: true,
-        headers: { "Content-Type": "multipart/form-data" },
-      }
-    );
-    dispatch(auctionSlice.actions.createAuctionSuccess());
+    const response = await api.post("/auctionitem/create", data);
     toast.success(response.data.message);
     dispatch(getAllAuctionItems());
-    dispatch(auctionSlice.actions.resetSlice());
+    return true;
   } catch (error) {
-    dispatch(auctionSlice.actions.createAuctionFailed());
-    toast.error(error.response.data.message);
-    dispatch(auctionSlice.actions.resetSlice());
+    toast.error(getErrorMessage(error, "Could not create auction."));
+    return false;
+  } finally {
+    dispatch(actions.submitDone());
   }
 };
 
 export const republishAuction = (id, data) => async (dispatch) => {
-  dispatch(auctionSlice.actions.republishItemRequest());
+  dispatch(actions.submitRequest());
   try {
-    const response = await axios.put(
-      `http://localhost:5000/api/v1/auctionitem/item/republish/${id}`,
-      data,
-      {
-        withCredentials: true,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-    dispatch(auctionSlice.actions.republishItemSuccess());
+    const response = await api.put(`/auctionitem/item/republish/${id}`, data);
     toast.success(response.data.message);
     dispatch(getMyAuctionItems());
     dispatch(getAllAuctionItems());
-    dispatch(auctionSlice.actions.resetSlice());
+    return true;
   } catch (error) {
-    dispatch(auctionSlice.actions.republishItemFailed());
-    toast.error(error.response.data.message);
-    console.error(error.response.data.message);
-    dispatch(auctionSlice.actions.resetSlice());
+    toast.error(getErrorMessage(error, "Could not republish auction."));
+    return false;
+  } finally {
+    dispatch(actions.submitDone());
   }
 };
 
 export const deleteAuction = (id) => async (dispatch) => {
-  dispatch(auctionSlice.actions.deleteAuctionItemRequest());
+  dispatch(actions.submitRequest());
   try {
-    const response = await axios.delete(
-      `http://localhost:5000/api/v1/auctionitem/delete/${id}`,
-      {
-        withCredentials: true,
-      }
-    );
-    dispatch(auctionSlice.actions.deleteAuctionItemSuccess());
+    const response = await api.delete(`/auctionitem/delete/${id}`);
     toast.success(response.data.message);
     dispatch(getMyAuctionItems());
     dispatch(getAllAuctionItems());
-    dispatch(auctionSlice.actions.resetSlice());
+    return true;
   } catch (error) {
-    dispatch(auctionSlice.actions.deleteAuctionItemFailed());
-    toast.error(error.response.data.message);
-    console.error(error.response.data.message);
-    dispatch(auctionSlice.actions.resetSlice());
+    toast.error(getErrorMessage(error, "Could not delete auction."));
+    return false;
+  } finally {
+    dispatch(actions.submitDone());
   }
 };
 

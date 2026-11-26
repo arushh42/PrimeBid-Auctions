@@ -1,5 +1,4 @@
 import { deleteAuctionItem } from "@/store/slices/superAdminSlice";
-import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 
@@ -7,8 +6,10 @@ const AuctionItemDelete = () => {
   const { allAuctions } = useSelector((state) => state.auction);
   const dispatch = useDispatch();
 
-  const handleAuctionDelete = (id) => {
-    dispatch(deleteAuctionItem(id));
+  const handleAuctionDelete = (id, title) => {
+    if (window.confirm(`Delete "${title}" and all of its bids? This cannot be undone.`)) {
+      dispatch(deleteAuctionItem(id));
+    }
   };
 
   return (
@@ -44,7 +45,7 @@ const AuctionItemDelete = () => {
                       </Link>
                       <button
                         className="bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-700 transition-all duration-300"
-                        onClick={() => handleAuctionDelete(element._id)}
+                        onClick={() => handleAuctionDelete(element._id, element.title)}
                       >
                         Delete
                       </button>
@@ -54,7 +55,7 @@ const AuctionItemDelete = () => {
               })
             ) : (
               <tr className="text-left text-xl text-sky-600 py-3">
-                <td>No Auctions found.</td>
+                <td colSpan={3} className="py-3">No Auctions found.</td>
               </tr>
             )}
           </tbody>

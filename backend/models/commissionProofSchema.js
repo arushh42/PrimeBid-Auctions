@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const PROOF_STATUSES = ["Pending", "Approved", "Rejected", "Settled"];
+
 const paymentProofSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -23,10 +25,13 @@ const paymentProofSchema = new mongoose.Schema({
   status: {
     type: String,
     default: "Pending",
-    enum: ["Pending", "Approved", "Rejected", "Settled"],
+    enum: PROOF_STATUSES,
   },
-  amount: Number,
-  comment: String,
+  amount: { type: Number, required: true, min: 0 },
+  comment: { type: String, trim: true, maxLength: 1000 },
+  settledAt: Date,
 });
+
+paymentProofSchema.index({ status: 1 });
 
 export const PaymentProof = mongoose.model("PaymentProof", paymentProofSchema);

@@ -1,140 +1,112 @@
 import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import ErrorHandler from "../middlewares/error.js";
-import { User } from "../models/userSchema.js";
-import { v2 as cloudinary } from "cloudinary";
-import { generateToken } from "../utils/jwtToken.js";
+import { PUBLIC_SIGNUP_ROLES, User } from "../models/userSchema.js";
+import { generateToken, clearToken } from "../utils/jwtToken.js";
+import { uploadImage, validateImage } from "../utils/cloudinary.js";
+
+const str = (value) => (typeof value === "string" ? value.trim() : "");
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const register = catchAsyncErrors(async (req, res, next) => {
-  if (!req.files || Object.keys(req.files).length === 0) {
-    return next(new ErrorHandler("Profile Image Required.", 400));
-  }
-
-  const { profileImage } = req.files;
-
-  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
-  if (!allowedFormats.includes(profileImage.mimetype)) {
-    return next(new ErrorHandler("File format not supported.", 400));
-  }
-
-  const {
-    userName,
-    email,
-    password,
-    phone,
-    address,
-    role,
-    bankAccountNumber,
-    bankAccountName,
-    bankName,
-    easypaisaAccountNumber,
-    paypalEmail,
-  } = req.body;
+  const userName = str(req.body.userName);
+  const email = str(req.body.email).toLowerCase();
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  const phone = str(req.body.phone).replace(/[\s-]/g, "");
+  const address = str(req.body.address);
+  const role = str(req.body.role);
 
   if (!userName || !email || !phone || !password || !address || !role) {
-    return next(new ErrorHandler("Please fill full form.", 400));
+    return next(new ErrorHandler("Please fill the full form.", 400));
   }
+  if (!PUBLIC_SIGNUP_ROLES.includes(role)) {
+    return next(new ErrorHandler("Please select a valid role.", 400));
+  }
+  if (!EMAIL_RE.test(email)) {
+    return next(new ErrorHandler("Please provide a valid email.", 400));
+  }
+  if (password.length < 8 || password.length > 72) {
+    return next(
+      new ErrorHandler("Password must be between 8 and 72 characters.", 400)
+    );
+  }
+
+  const paymentMethods = {};
   if (role === "Auctioneer") {
+    const bankAccountNumber = str(req.body.bankAccountNumber);
+    const bankAccountName = str(req.body.bankAccountName);
+    const bankName = str(req.body.bankName);
+    const walletProvider = str(req.body.walletProvider);
+    const walletAccountId = str(req.body.walletAccountId);
+    const paypalEmail = str(req.body.paypalEmail).toLowerCase();
+
     if (!bankAccountName || !bankAccountNumber || !bankName) {
       return next(
         new ErrorHandler("Please provide your full bank details.", 400)
       );
     }
-    if (!easypaisaAccountNumber) {
-      return next(
-        new ErrorHandler("Please provide your easypaisa account number.", 400)
-      );
+    if (paypalEmail && !EMAIL_RE.test(paypalEmail)) {
+      return next(new ErrorHandler("Please provide a valid PayPal email.", 400));
     }
-    if (!paypalEmail) {
-      return next(new ErrorHandler("Please provide your paypal email.", 400));
+    paymentMethods.bankTransfer = { bankAccountNumber, bankAccountName, bankName };
+    if (walletAccountId) {
+      paymentMethods.wallet = { provider: walletProvider || "Mobile Wallet", accountId: walletAccountId };
+    }
+    if (paypalEmail) {
+      paymentMethods.paypal = { paypalEmail };
     }
   }
-  const isRegistered = await User.findOne({ email });
+
+  const profileImage = req.files?.profileImage;
+  validateImage(profileImage, "Profile image");
+
+  const isRegistered = await User.exists({ email });
   if (isRegistered) {
-    return next(new ErrorHandler("User already registered.", 400));
+    return next(new ErrorHandler("An account with this email already exists.", 400));
   }
-  const cloudinaryResponse = await cloudinary.uploader.upload(
-    profileImage.tempFilePath,
-    {
-      folder: "MERN_AUCTION_PLATFORM_USERS",
-    }
-  );
-  if (!cloudinaryResponse || cloudinaryResponse.error) {
-    console.error(
-      "Cloudinary error:",
-      cloudinaryResponse.error || "Unknown cloudinary error."
-    );
-    return next(
-      new ErrorHandler("Failed to upload profile image to cloudinary.", 500)
-    );
-  }
-  const user = await User.create({
-    userName,
-    email,
-    password,
-    phone,
-    address,
-    role,
-    profileImage: {
-      public_id: cloudinaryResponse.public_id,
-      url: cloudinaryResponse.secure_url,
-    },
-    paymentMethods: {
-      bankTransfer: {
-        bankAccountNumber,
-        bankAccountName,
-        bankName,
-      },
-      easypaisa: {
-        easypaisaAccountNumber,
-      },
-      paypal: {
-        paypalEmail,
-      },
-    },
-  });
-  generateToken(user, "User Registered.", 201, res);
+
+  // Validate everything else before spending an upload.
+  const draft = new User({ userName, email, password, phone, address, role, paymentMethods });
+  await draft.validate(["userName", "email", "phone", "address"]);
+
+  draft.profileImage = await uploadImage(profileImage, "MERN_AUCTION_PLATFORM_USERS");
+  const user = await draft.save();
+  generateToken(user, "Registration successful.", 201, res);
 });
 
 export const login = catchAsyncErrors(async (req, res, next) => {
-  const { email, password } = req.body;
+  const email = str(req.body.email).toLowerCase();
+  const password = typeof req.body.password === "string" ? req.body.password : "";
   if (!email || !password) {
-    return next(new ErrorHandler("Please fill full form."));
+    return next(new ErrorHandler("Please enter your email and password.", 400));
   }
   const user = await User.findOne({ email }).select("+password");
-  if (!user) {
-    return next(new ErrorHandler("Invalid credentials.", 400));
+  if (!user || !(await user.comparePassword(password))) {
+    return next(new ErrorHandler("Invalid email or password.", 401));
   }
-  const isPasswordMatch = await user.comparePassword(password);
-  if (!isPasswordMatch) {
-    return next(new ErrorHandler("Invalid credentials.", 400));
-  }
-  generateToken(user, "Login successfully.", 200, res);
+  generateToken(user, "Logged in successfully.", 200, res);
 });
 
-export const getProfile = catchAsyncErrors(async (req, res, next) => {
-  const user = req.user;
+export const getProfile = catchAsyncErrors(async (req, res) => {
   res.status(200).json({
     success: true,
-    user,
+    user: req.user,
   });
 });
 
-export const logout = catchAsyncErrors(async (req, res, next) => {
-  res
-    .status(200)
-    .cookie("token", "", {
-      expires: new Date(Date.now()),
-      httpOnly: true,
-    })
-    .json({
-      success: true,
-      message: "Logout Successfully.",
-    });
+export const logout = catchAsyncErrors(async (req, res) => {
+  clearToken(res);
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully.",
+  });
 });
 
-export const fetchLeaderboard = catchAsyncErrors(async (req, res, next) => {
-  const users = await User.find({ moneySpent: { $gt: 0 } });
-  const leaderboard = users.sort((a, b) => b.moneySpent - a.moneySpent);
+export const fetchLeaderboard = catchAsyncErrors(async (req, res) => {
+  const leaderboard = await User.find({ role: "Bidder", moneySpent: { $gt: 0 } })
+    .select("userName profileImage.url moneySpent auctionsWon")
+    .sort({ moneySpent: -1 })
+    .limit(100)
+    .lean();
   res.status(200).json({
     success: true,
     leaderboard,

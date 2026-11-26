@@ -1,4 +1,4 @@
-import React from "react";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -44,7 +44,7 @@ const PaymentGraph = () => {
     ],
     datasets: [
       {
-        label: "Total Payment Received",
+        label: "Commission Received (Rs.)",
         data: monthlyRevenue,
         backgroundColor: "#D6482B",
       },
@@ -55,7 +55,6 @@ const PaymentGraph = () => {
     scales: {
       y: {
         beginAtZero: true,
-        max: 5000,
         ticks: {
           callback: function (value) {
             return value.toLocaleString();
@@ -66,7 +65,7 @@ const PaymentGraph = () => {
     plugins: {
       title: {
         display: true,
-        text: "Monthly Total Payments Received",
+        text: "Monthly Commission Received",
       },
     },
   };

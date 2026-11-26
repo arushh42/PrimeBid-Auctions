@@ -1,6 +1,5 @@
 import Card from "@/custom-components/Card";
 import Spinner from "@/custom-components/Spinner";
-import React from "react";
 import { useSelector } from "react-redux";
 
 const Auctions = () => {

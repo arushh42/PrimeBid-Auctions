@@ -1,0 +1,4 @@
+# Netlify: proxy the API so auth cookies stay first-party, then SPA fallback.
+# Replace YOUR-BACKEND-HOST with your backend's hostname.
+/api/*  https://YOUR-BACKEND-HOST/api/:splat  200
+/*      /index.html                          200

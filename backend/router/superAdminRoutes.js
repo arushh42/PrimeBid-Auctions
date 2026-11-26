@@ -12,53 +12,14 @@ import {
 
 const router = express.Router();
 
-router.delete(
-  "/auctionitem/delete/:id",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  deleteAuctionItem
-);
+router.use(isAuthenticated, isAuthorized("Super Admin"));
 
-router.get(
-  "/paymentproofs/getall",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  getAllPaymentProofs
-);
-
-router.get(
-  "/paymentproof/:id",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  getPaymentProofDetail
-);
-
-router.put(
-  "/paymentproof/status/update/:id",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  updateProofStatus
-);
-
-router.delete(
-  "/paymentproof/delete/:id",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  deletePaymentProof
-);
-
-router.get(
-  "/users/getall",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  fetchAllUsers
-);
-
-router.get(
-  "/monthlyincome",
-  isAuthenticated,
-  isAuthorized("Super Admin"),
-  monthlyRevenue
-);
+router.delete("/auctionitem/delete/:id", deleteAuctionItem);
+router.get("/paymentproofs/getall", getAllPaymentProofs);
+router.get("/paymentproof/:id", getPaymentProofDetail);
+router.put("/paymentproof/status/update/:id", updateProofStatus);
+router.delete("/paymentproof/delete/:id", deletePaymentProof);
+router.get("/users/getall", fetchAllUsers);
+router.get("/monthlyincome", monthlyRevenue);
 
 export default router;
